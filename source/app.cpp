@@ -28,6 +28,30 @@ public:
 			ts->close();
 	}
 
+	int send_some(void) {
+		unsigned int l = 1400;
+		socket_error_t err;
+
+		if (!remaining) {
+			printf("done: closing it\r\n");
+			ts->close();
+			return 1;
+		}
+		if (l > remaining)
+			l = remaining;
+
+		err = ts->send(pos, l);
+		if (err != SOCKET_ERROR_NONE) {
+			onError(ts, err);
+		}
+		
+		printf("conn %p: sending %p, len %d\r\n", ts, pos, l);
+
+		pos += l;
+		remaining -= l;
+		
+		return 0;
+	}
 
 	void onRX(Socket *s) {
 		socket_error_t err;
@@ -67,7 +91,10 @@ public:
 		pos = leaf;
 		remaining = sizeof(leaf);
 		
-		printf("%s: s->send says %d\r\n", __func__, err);
+		//printf("%s: s->send says %d\r\n", __func__, err);
+		
+		send_some();
+				send_some();
 	}
 
 	void onDisconnect(TCPStream *s) {
@@ -77,28 +104,9 @@ public:
 		}
 	}
 	void onSent(Socket *s, uint16_t len) {
-		unsigned int l = 1400;
-		socket_error_t err;
 		(void)s;
 		(void)len;
-
-		if (!remaining) {
-			printf("done: closing it\r\n");
-			s->close();
-			return;
-		}
-		if (l > remaining)
-			l = remaining;
-
-		err = s->send(pos, l);
-		if (err != SOCKET_ERROR_NONE) {
-			onError(s, err);
-		}
-		
-		printf("conn %p: sending %p, len %d\r\n", s, pos, l);
-
-		pos += l;
-		remaining -= l;
+		send_some();
 	}
 
 public:
@@ -155,7 +163,9 @@ protected:
 			onError(s, SOCKET_ERROR_BAD_ALLOC);
 			return;
 		}
-		
+	
+		conn->ts->setNagle(0);
+	
 		conn->ts->setOnError(TCPStream::ErrorHandler_t(conn, &connection::onError));
 		conn->ts->setOnDisconnect(TCPStream::DisconnectHandler_t(conn,
 						&connection::onDisconnect));
