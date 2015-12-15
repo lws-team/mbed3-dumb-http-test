@@ -3,13 +3,8 @@
 #include "sockets/TCPListener.h"
 #include "sal-stack-lwip/lwipv4_init.h"
 
-static const unsigned char leaf[] = {
-	#include "../leaf.jpg.h"
-};
-
 namespace {
 	const int SERVER_PORT = 80;
-	const int BUFFER_SIZE = 4096;
 }
 using namespace mbed::Sockets::v0;
 
@@ -29,35 +24,20 @@ public:
 	}
 
 	int send_some(void) {
-		unsigned int l = 1400;
 		socket_error_t err;
 
-		if (!remaining) {
-			printf("done: closing it\r\n");
-			ts->close();
-			return 1;
-		}
-		if (l > remaining)
-			l = remaining;
-
-		err = ts->send(pos, l);
+		err = ts->send("aha12345", 8);
 		if (err != SOCKET_ERROR_NONE) {
 			onError(ts, err);
 		}
-		
-		printf("conn %p: sending %p, len %d\r\n", ts, pos, l);
-
-		pos += l;
-		remaining -= l;
 		
 		return 0;
 	}
 
 	void onRX(Socket *s) {
 		socket_error_t err;
-		char rsp[256];
-		size_t size = BUFFER_SIZE - 1;
-		int n, len;
+		size_t size = sizeof(buffer);
+		int n;
 
 		err = s->recv(buffer, &size);
 		n = s->error_check(err);
@@ -67,34 +47,7 @@ public:
 			return;
 		}
 		
- 		buffer[size] = 0;
-		printf("%d: %s", size, buffer);
-		
-		if (strncmp(buffer, "GET / ", 6)) {
-			printf("Unrecognized URL, closing it\r\n");
-			s->close();
-			return;
-		}
-		
-		len = sprintf(rsp,	
-			"HTTP/1.1 200 OK\r\n"
-			"Content-type: image/jpg\r\n"
-			"Content-length: %d\r\n"
-			"\r\n",
-			sizeof(leaf));
-
-		err = s->send(rsp, len);
-		if (err != SOCKET_ERROR_NONE) {
-			onError(s, err);
-		}
-
-		pos = leaf;
-		remaining = sizeof(leaf);
-		
-		//printf("%s: s->send says %d\r\n", __func__, err);
-		
 		send_some();
-				send_some();
 	}
 
 	void onDisconnect(TCPStream *s) {
@@ -194,6 +147,7 @@ void app_start(int argc, char *argv[])
 	(void) argv;
 	
 	pc.baud(115200);
+	printf("\r\n\r\nStarting on port 80...\r\n");
 	eth.init(); // Use DHCP
 	eth.connect();
 	lwipv4_socket_init();
